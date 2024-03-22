@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.24;
 
-contract NFTMarketplace {}
+contract NFTMarketplace {
+    string public constant author = "Jason Yapri";
+}
