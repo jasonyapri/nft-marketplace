@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract NFTMarketplace is Ownable, ReentrancyGuard {
     using Address for address payable;
@@ -17,6 +18,7 @@ contract NFTMarketplace is Ownable, ReentrancyGuard {
 
     struct Auction {
         address payable seller;
+        address nftAddress;
         uint minPrice;
         uint highestBid;
         address payable highestBidder;
@@ -46,16 +48,21 @@ contract NFTMarketplace is Ownable, ReentrancyGuard {
     error BidTooLow();
 
     function createAuction(
-        uint _tokenId,
+        address _nftAddress,
         uint _minPrice,
         uint _duration
     ) external {
         if (_minPrice == 0) revert InvalidMinPrice();
         if (_duration == 0) revert InvalidDuration();
 
-        // TODO: Store NFT
-        auctions[++numOfAuctions] = Auction({
+        IERC721(_nftAddress).transferFrom(
+            msg.sender,
+            address(this),
+            ++numOfAuctions
+        );
+        auctions[numOfAuctions] = Auction({
             seller: payable(msg.sender),
+            nftAddress: _nftAddress,
             minPrice: _minPrice,
             highestBid: 0,
             highestBidder: payable(address(0)),
@@ -86,14 +93,30 @@ contract NFTMarketplace is Ownable, ReentrancyGuard {
     }
 
     function endAuction(uint _auctionId) external nonReentrant {
-        if (auctions[_auctionId].deadline < block.timestamp) {
-            Auction storage auction = auctions[_auctionId];
+        Auction storage auction = auctions[_auctionId];
+        if (auction.deadline < block.timestamp) {
             auction.ended = true;
-            // TODO: Send NFT
-            auction.seller.sendValue(
-                (auction.highestBid * (100 - COMMISSION)) / 100
-            );
-            commissionPool += (auction.highestBid * COMMISSION) / 100;
+
+            if (auction.highestBid >= auction.minPrice) {
+                // Somebody placeed a bid
+                IERC721(auction.nftAddress).transferFrom(
+                    address(this),
+                    auction.highestBidder,
+                    _auctionId
+                );
+
+                auction.seller.sendValue(
+                    (auction.highestBid * (100 - COMMISSION)) / 100
+                );
+                commissionPool += (auction.highestBid * COMMISSION) / 100;
+            } else {
+                // Nobody placed a bid
+                IERC721(auction.nftAddress).transferFrom(
+                    address(this),
+                    auction.seller,
+                    _auctionId
+                );
+            }
 
             emit AuctionEnded(
                 _auctionId,
