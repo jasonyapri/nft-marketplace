@@ -14,7 +14,7 @@ contract NFTMarketplaceScript is Script {
     function run() public {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(privateKey);
-        nftMarketplace = new NFTMarketplace();
+        nftMarketplace = new NFTMarketplace(vm.envAddress("PUBLIC_KEY"));
         vm.stopBroadcast();
     }
 }
