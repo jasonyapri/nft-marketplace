@@ -3,8 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract NFTMarketplace is Ownable {
+contract NFTMarketplace is Ownable, ReentrancyGuard {
     using Address for address payable;
 
     uint private commissionPool;
@@ -63,7 +64,7 @@ contract NFTMarketplace is Ownable {
         });
     }
 
-    function placeBid(uint _auctionId) external payable {
+    function placeBid(uint _auctionId) external payable nonReentrant {
         Auction storage auction = auctions[_auctionId];
 
         if (auction.seller == address(0)) revert AuctionNotFound();
@@ -84,7 +85,7 @@ contract NFTMarketplace is Ownable {
         emit BidPlaced(_auctionId, msg.sender, msg.value);
     }
 
-    function endAuction(uint _auctionId) external {
+    function endAuction(uint _auctionId) external nonReentrant {
         if (auctions[_auctionId].deadline < block.timestamp) {
             Auction storage auction = auctions[_auctionId];
             auction.ended = true;
@@ -104,7 +105,7 @@ contract NFTMarketplace is Ownable {
         }
     }
 
-    function withdrawCommission() external onlyOwner {
+    function withdrawCommission() external onlyOwner nonReentrant {
         uint commissionToBeTransferred;
         commissionPool = 0;
         payable(owner()).sendValue(commissionToBeTransferred);
